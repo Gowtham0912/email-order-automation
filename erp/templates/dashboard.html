@@ -1,0 +1,25 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>ERP Dashboard</title>
+    <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+    <h1>📦 ERP Order Dashboard</h1>
+    <a href="/scan" class="btn">Scan New Emails</a>
+    <table>
+        <tr>
+            <th>ID</th><th>Product</th><th>Quantity</th><th>Due Date</th><th>Email Subject</th>
+        </tr>
+        {% for o in orders %}
+        <tr>
+            <td>{{ o.id }}</td>
+            <td>{{ o.product }}</td>
+            <td>{{ o.quantity }}</td>
+            <td>{{ o.due_date }}</td>
+            <td>{{ o.email_subject }}</td>
+        </tr>
+        {% endfor %}
+    </table>
+</body>
+</html>
