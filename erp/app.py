@@ -1,25 +1,87 @@
-import sys, os
-from flask import Flask, render_template, jsonify, request
+import sys, os, imaplib
+from flask import Flask, render_template, jsonify, request, redirect, url_for, session
+
+# Add project path
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from extractor.email_fetcher import fetch_emails
 from extractor.ner_extractor import extract_order_details
-from erp.models import add_order, session, PurchaseOrder
-from config import EMAIL_USER, EMAIL_PASS
+from erp.models import add_order, session as db_session, PurchaseOrder
 
 app = Flask(__name__)
+app.secret_key = "super_secret_key_123"  # Change this in production
 
-@app.route('/')
+
+# ---------------- LOGIN ----------------
+@app.route('/', methods=['GET', 'POST'])
+@app.route('/login', methods=['GET', 'POST'])
+def login():
+    """Login screen that validates Gmail IMAP login"""
+    if request.method == 'POST':
+        email_user = request.form.get('email', '').strip()
+        email_pass = request.form.get('password', '').strip()
+
+        if not email_user or not email_pass:
+            return render_template('login.html', error="⚠️ Both fields are required!")
+
+        # ✅ Try Gmail IMAP login
+        try:
+            imap = imaplib.IMAP4_SSL("imap.gmail.com")
+            imap.login(email_user, email_pass)
+            imap.logout()
+            print(f"✅ Gmail login successful for {email_user}")
+
+            # Store credentials in session
+            session['email_user'] = email_user
+            session['email_pass'] = email_pass
+
+            return redirect(url_for('dashboard'))
+
+        except imaplib.IMAP4.error:
+            print(f"❌ Invalid credentials for {email_user}")
+            return render_template('login.html', error="❌ Invalid email or app password.")
+        except Exception as e:
+            print("⚠️ Error during login:", e)
+            return render_template('login.html', error=f"⚠️ Gmail connection error: {e}")
+
+    # If already logged in, go to dashboard
+    if "email_user" in session:
+        return redirect(url_for('dashboard'))
+
+    return render_template('login.html')
+
+
+@app.route('/logout')
+def logout():
+    """Logout and clear session"""
+    session.clear()
+    print("👋 User logged out.")
+    return redirect(url_for('login'))
+
+
+# ---------------- DASHBOARD ----------------
+@app.route('/dashboard')
 def dashboard():
-    """Display dashboard with all orders"""
-    orders = session.query(PurchaseOrder).all()
+    """Show dashboard only if logged in"""
+    if "email_user" not in session:
+        return redirect(url_for('login'))
+
+    orders = db_session.query(PurchaseOrder).all()
     return render_template("dashboard.html", orders=orders)
 
+
+# ---------------- SCAN EMAILS ----------------
 @app.route('/scan', methods=['POST'])
 def scan_emails():
-    """Fetch new emails asynchronously and update ERP"""
-    print("\n📬 Scanning mailbox for new order emails...")
-    emails = fetch_emails(EMAIL_USER, EMAIL_PASS)
+    """Fetch new emails for logged-in user"""
+    if "email_user" not in session or "email_pass" not in session:
+        return jsonify({"status": "unauthorized", "message": "⚠️ Please log in first."})
+
+    email_user = session['email_user']
+    email_pass = session['email_pass']
+
+    print(f"\n📬 Scanning mailbox for new order emails ({email_user})...")
+    emails = fetch_emails(email_user, email_pass)
 
     if not emails:
         return jsonify({"status": "no_new", "message": "⚠️ No new order emails found."})
@@ -34,20 +96,30 @@ def scan_emails():
 
     return jsonify({"status": "updated", "message": f"✅ {added} new order(s) added successfully!"})
 
+
+# ---------------- DELETE ORDER ----------------
 @app.route('/delete/<int:order_id>', methods=['DELETE'])
 def delete_order(order_id):
-    """Delete a specific order by ID"""
-    order = session.query(PurchaseOrder).get(order_id)
+    """Delete order if logged in"""
+    if "email_user" not in session:
+        return jsonify({"success": False, "message": "⚠️ Please log in first."})
+
+    order = db_session.query(PurchaseOrder).get(order_id)
     if order:
-        session.delete(order)
-        session.commit()
+        db_session.delete(order)
+        db_session.commit()
         return jsonify({"success": True, "message": "Order deleted successfully!"})
     return jsonify({"success": False, "message": "Order not found!"})
 
+
+# ---------------- GET ORDERS ----------------
 @app.route('/orders')
 def get_orders():
-    """Return updated orders list as JSON (for live refresh)"""
-    orders = session.query(PurchaseOrder).all()
+    """Return all orders (protected)"""
+    if "email_user" not in session:
+        return jsonify([])
+
+    orders = db_session.query(PurchaseOrder).all()
     data = [
         {
             "id": o.id,
@@ -62,6 +134,7 @@ def get_orders():
         for o in orders
     ]
     return jsonify(data)
+
 
 if __name__ == "__main__":
     app.run(debug=True)
