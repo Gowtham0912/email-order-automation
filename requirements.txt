@@ -10,3 +10,6 @@ pandas
 gunicorn
 email-validator
 python-dotenv
+dateparser
+python-dateutil
+beautifulsoup4

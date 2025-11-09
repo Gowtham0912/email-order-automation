@@ -1,25 +1,36 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>ERP Dashboard</title>
-    <link rel="stylesheet" href="/static/style.css">
+  <title>ERP Purchase Order Dashboard</title>
+  <link rel="stylesheet" href="/static/style.css">
 </head>
 <body>
-    <h1>📦 ERP Order Dashboard</h1>
-    <a href="/scan" class="btn">Scan New Emails</a>
-    <table>
-        <tr>
-            <th>ID</th><th>Product</th><th>Quantity</th><th>Due Date</th><th>Email Subject</th>
-        </tr>
-        {% for o in orders %}
-        <tr>
-            <td>{{ o.id }}</td>
-            <td>{{ o.product }}</td>
-            <td>{{ o.quantity }}</td>
-            <td>{{ o.due_date }}</td>
-            <td>{{ o.email_subject }}</td>
-        </tr>
-        {% endfor %}
-    </table>
+  <h1>📦 ERP Purchase Order Dashboard</h1>
+  <a href="/scan" class="btn">📩 Scan New Emails</a>
+
+  <table>
+    <tr>
+      <th>Order ID</th>
+      <th>Product Name</th>
+      <th>Quantity Ordered</th>
+      <th>Delivery Due Date</th>
+      <th>Retailer Name</th>
+      <th>Retailer Email</th>
+      <th>Retailer Address</th>
+      <th>Email Subject</th>
+    </tr>
+    {% for order in orders %}
+    <tr>
+      <td>{{ order.id }}</td>
+      <td>{{ order.product_name }}</td>
+      <td>{{ order.quantity_ordered }}</td>
+      <td>{{ order.delivery_due_date }}</td>
+      <td>{{ order.retailer_name }}</td>
+      <td>{{ order.retailer_email }}</td>
+      <td>{{ order.retailer_address }}</td>
+      <td>{{ order.client_email_subject }}</td>
+    </tr>
+    {% endfor %}
+  </table>
 </body>
 </html>
