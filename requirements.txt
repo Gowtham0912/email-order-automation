@@ -1,0 +1,12 @@
+flask
+requests
+pytesseract
+pdf2image
+pillow
+python-magic
+spacy
+sqlalchemy
+pandas
+gunicorn
+email-validator
+python-dotenv
