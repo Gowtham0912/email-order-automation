@@ -13,3 +13,5 @@ python-dotenv
 dateparser
 python-dateutil
 beautifulsoup4
+poppler
+tesseract ocr
