@@ -1,0 +1,7 @@
+body { font-family: Arial; background: #f9fafb; text-align: center; }
+h1 { color: #333; }
+table { margin: 20px auto; border-collapse: collapse; width: 80%; }
+th, td { border: 1px solid #ccc; padding: 10px; }
+th { background: #eee; }
+.btn { background: #007bff; color: white; padding: 10px 15px; text-decoration: none; border-radius: 5px; }
+.btn:hover { background: #0056b3; }
