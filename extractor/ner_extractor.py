@@ -1,132 +1,192 @@
+# extractor/ner_extractor.py
 import re
-from typing import Dict, Optional, Tuple, List
+from typing import Dict, Optional, List
 import spacy
 import dateparser
 from dateparser.search import search_dates
 
 nlp = spacy.load("en_core_web_sm")
 
+MONTHS = r"(?:jan(?:uary)?|feb(?:ruary)?|mar(?:ch)?|apr(?:il)?|may|jun(?:e)?|jul(?:y)?|aug(?:ust)?|sep(?:t(?:ember)?)?|oct(?:ober)?|nov(?:ember)?|dec(?:ember)?)"
+
 LABELS = {
-    "product": [
-        r"\bproduct\s*name\b", r"\bproduct\b", r"\bitem\b",
-    ],
-    "quantity": [
-        r"\bquantity\b", r"\bqty\b", r"\bq\.?t\.?y\.?\b"
-    ],
-    "due_date": [
-        r"\bdue\s*date\b", r"\bdelivery\s*date\b", r"\brequired\s*by\b",
-        r"\bneed\s*by\b", r"\bbefore\b", r"\bexpected\s*delivery\b"
-    ],
-    "address": [
-        r"\bdelivery\s*location\b", r"\baddress\b", r"\bship\s*to\b", r"\bdeliver\s*to\b"
-    ],
-    "retailer_name": [
-        r"\bretailer\s*name\b", r"\bcustomer\s*name\b", r"\bcompany\s*name\b"
-    ],
-    "email": [
-        r"\bemail\b", r"\be-mail\b"
-    ],
-    "contact": [
-        r"\bcontact\b", r"\bphone\b", r"\bmobile\b", r"\btel\b"
-    ],
+    "product":   [r"\bproduct\s*name\b", r"\bproduct\b", r"\bitem\b", r"\bmodel\b"],
+    "quantity":  [r"\bquantity\b", r"\bqty\b", r"\bq\.?t\.?y\.?\b", r"\bunits?\b", r"\bpcs?\b"],
+    "due_date":  [r"\bdue\s*date\b", r"\bdelivery\s*date\b", r"\brequired\s*by\b", r"\bneed\s*by\b",
+                  r"\bdue\s*by\b", r"\bdue\s*on\b", r"\bon\s*or\s*before\b", r"\bdeliver(?:ed)?\s*by\b", r"\bbefore\b", r"\bby\b"],
+    "address":   [r"\bdelivery\s*location\b", r"\baddress\b", r"\bship\s*to\b", r"\bdeliver\s*to\b",
+                  r"\blocation\b", r"\bshipping\s*address\b", r"\bbilling\s*address\b"],
+    "retailer_name": [r"\bretailer\s*name\b", r"\bcontact\s*person\b", r"\bcustomer\s*name\b",
+                      r"\bcompany\s*name\b", r"\bname\b"],
+    "email":     [r"\bemail\b", r"\be-mail\b", r"@"],
 }
 
-SEPARATORS = r"\s*(?:[:\-–—]|is|=)\s*"
+DATE_PATTERNS = [
+    rf"\b\d{{1,2}}[\/\-]\d{{1,2}}[\/\-]\d{{2,4}}\b",           # 14-11-2025 / 14/11/25
+    rf"\b\d{{4}}[\/\-]\d{{1,2}}[\/\-]\d{{1,2}}\b",             # 2025-11-14
+    rf"\b\d{{1,2}}\s+{MONTHS}\s+\d{{4}}\b",                    # 14 November 2025
+    rf"\b{MONTHS}\s+\d{{1,2}},?\s+\d{{4}}\b",                  # Nov 14, 2025
+]
 
-STOP_AFTER_VALUE = re.compile(
-    r"\b(?:kindly|thanks|thank\s*you|best|regards|email|contact|phone|mobile|subject)\b",
-    re.IGNORECASE
-)
+STOP_MARK = re.compile(r"\b(thanks|thank\s*you|best|regards|email|contact|phone|mobile|subject)\b", re.I)
 
+WORD_NUM = {
+    "a": "1", "an": "1", "one": "1", "single": "1",
+    "two": "2", "couple": "2", "three": "3", "four": "4", "five": "5",
+    "six": "6", "seven": "7", "eight": "8", "nine": "9", "ten": "10"
+}
+
+# ---------- utilities ----------
 def _normalize(text: str) -> str:
-    # Fix OCR artifacts and collapse whitespace
-    t = text.replace("\r", "\n")
-    t = t.replace("\xa0", " ")
-    # Remove hyphen line-break joins like 'Submersible-\nBorewell' → 'SubmersibleBorewell'
-    t = re.sub(r"-\s*\n\s*", "", t)
-    # Turn multiple newlines into single
+    t = (text or "").replace("\r", "\n").replace("\xa0", " ")
+    t = re.sub(r"-\s*\n\s*", "", t)     # join hyphenated line breaks
     t = re.sub(r"\n{2,}", "\n", t)
     return t.strip()
 
 def _split_lines(text: str) -> List[str]:
-    lines = [re.sub(r"\s+", " ", ln).strip() for ln in text.split("\n")]
-    return [ln for ln in lines if ln]
+    return [re.sub(r"\s+", " ", ln).strip() for ln in text.split("\n") if ln.strip()]
 
-def _match_label(line: str, patterns: List[str]) -> bool:
+def _kv_value(line: str, patterns: List[str]) -> Optional[str]:
+    """
+    Match only true labeled lines:  <label> [: - — = is] <value>
+    Avoid triggering just because a word like 'product' appears in a sentence.
+    """
     for p in patterns:
-        if re.search(p, line, re.IGNORECASE):
-            return True
-    return False
-
-def _value_after_label(line: str) -> Optional[str]:
-    # Grab value after "Label: value" / "Label - value" / "Label = value" / "Label is value"
-    m = re.split(SEPARATORS, line, maxsplit=1)
-    if len(m) == 2:
-        val = m[1].strip(" ,.;")
-        return val or None
+        m = re.search(rf"({p})\s*(?:[:\-–—=]|(?:\s+is\b))\s*(.+)$", line, re.I)
+        if m:
+            val = m.group(2).strip(" ,.;")
+            return val or None
     return None
 
-def _extend_wrapped_value(idx: int, lines: List[str]) -> str:
-    """If a value wraps to the next line(s), append them until a new label starts or a stop word appears."""
-    val = _value_after_label(lines[idx]) or ""
-    j = idx + 1
+def _extend_wrapped_value(i: int, lines: List[str], acc: str) -> str:
+    """Carry value to following continuation lines until a new label or stop word."""
+    val = acc
+    j = i + 1
     while j < len(lines):
         nxt = lines[j]
-        # ✅ fixed: remove 'any()' around _match_label()
-        if _match_label(nxt, sum(LABELS.values(), [])) or STOP_AFTER_VALUE.search(nxt):
+        if STOP_MARK.search(nxt):
             break
-        # Heuristic: if next line is short or looks like continuation, append
-        if len(nxt) <= 80 or ("," in nxt or "-" in nxt):
+        # stop if the next line looks like a new labeled field
+        if any(_kv_value(nxt, pats) for pats in LABELS.values()):
+            break
+        if len(nxt) <= 80 or "," in nxt:
             val += " " + nxt.strip(" ,.;")
             j += 1
         else:
             break
     return val.strip()
 
-
-def _first_future_date(text: str) -> Optional[str]:
-    # Prefer dates in the future
-    try:
-        hits = search_dates(text, settings={"PREFER_DATES_FROM": "future"})
-        if not hits:
-            return None
-        # Choose the first hit that looks sensible (4-digit year preferred)
-        for frag, dt in hits:
-            if re.search(r"\b\d{4}\b", frag) or re.search(r"\b\d{1,2}[\/\-]\d{1,2}[\/\-]\d{2,4}\b", frag):
-                return dt.date().isoformat()
-        # Else return first parsed date
-        return hits[0][1].date().isoformat()
-    except Exception:
-        return None
-
-def _quantity_from_text(val: str) -> Optional[str]:
-    # Extract numeric part; supports "150", "150 units", "100 pcs", "Qty: 75"
-    m = re.search(r"\b(\d{1,7})(?:\s*(?:units?|pcs?|pieces?|nos?))?\b", val, re.IGNORECASE)
-    return m.group(1) if m else None
-
-def _email_from_text(text: str) -> Optional[str]:
-    m = re.search(r"[\w\.-]+@[\w\.-]+\.\w+", text)
+def _email(text: str) -> Optional[str]:
+    m = re.search(r"[\w\.-]+@[\w\.-]+\.\w+", text or "")
     return m.group(0) if m else None
 
-def _signature_name(lines: List[str]) -> Optional[str]:
-    """
-    Look for signature block: 'Best regards,' 'Regards,' 'Sincerely,' etc.
-    Take 1–2 lines following as the name (skip lines that are obviously labels).
-    """
-    for i, ln in enumerate(lines):
-        if re.search(r"\b(best\s*regards|regards|warm\s*regards|sincerely|thanks)\b", ln, re.IGNORECASE):
-            # Consider next 1–2 lines as possible name/company
-            for k in range(1, 3):
-                if i + k < len(lines):
-                    cand = lines[i + k].strip(" ,.;")
-                    # skip if looks like a label line
-                    if any(_match_label(cand, sum(LABELS.values(), []))):
-                        continue
-                    # require at least two tokens to avoid lone letters like "R"
-                    if len(cand.split()) >= 2:
-                        return cand
+def _strict_parse_date(fragment: str) -> Optional[str]:
+    if not fragment:
+        return None
+    try:
+        dt = dateparser.parse(
+            fragment,
+            settings={"STRICT_PARSING": True, "PREFER_DATES_FROM": "future", "RETURN_AS_TIMEZONE_AWARE": False},
+            languages=["en"],
+        )
+        return dt.date().isoformat() if dt else None
+    except Exception:
+        try:
+            dt = dateparser.parse(fragment, settings={"PREFER_DATES_FROM": "future"}, languages=["en"])
+            return dt.date().isoformat() if dt else None
+        except Exception:
+            return None
+
+def _find_best_date(text: str) -> Optional[str]:
+    if not text:
+        return None
+    # 1) look near cues
+    cue = re.search(r"(?:on\s*or\s*before|due\s*(?:on|by)|required\s*by|deliver(?:ed)?\s*by|before|by)\s+(.{0,60})", text, re.I)
+    if cue:
+        frag = cue.group(1)
+        for pat in DATE_PATTERNS:
+            m = re.search(pat, frag, re.I)
+            if m:
+                parsed = _strict_parse_date(m.group(0))
+                if parsed:
+                    return parsed
+    # 2) scan entire text
+    for pat in DATE_PATTERNS:
+        m = re.search(pat, text, re.I)
+        if m:
+            parsed = _strict_parse_date(m.group(0))
+            if parsed:
+                return parsed
+    # 3) final strict search
+    try:
+        hits = search_dates(text, settings={"STRICT_PARSING": True, "PREFER_DATES_FROM": "future"}, languages=["en"])
+        if hits:
+            for frag, dt in hits:
+                if re.search(r"[/-]|\b"+MONTHS+r"\b", frag, re.I):
+                    return dt.date().isoformat()
+            return hits[0][1].date().isoformat()
+    except Exception:
+        pass
     return None
 
+def _quantity(text: str) -> Optional[str]:
+    if not text:
+        return None
+    m = re.search(r"\b(?:qty|quantity|units?|pcs?|pieces?|nos?)\b\D{0,5}(\d{1,5})\b", text, re.I)
+    if m:
+        return m.group(1)
+    m = re.search(r"\b(?:need|want|buy|order|purchase)\s*(?:only\s*)?(\d{1,5}|a|an|one|two|three|four|five|six|seven|eight|nine|ten)\b", text, re.I)
+    if m:
+        v = m.group(1).lower()
+        return WORD_NUM.get(v, v)
+    m = re.search(r"\b(\d{1,5})\s*(?:units?|pcs?|pieces?|nos?)\b", text, re.I)
+    if m:
+        return m.group(1)
+    return None
+
+def _name_conversational(text: str) -> Optional[str]:
+    m = re.search(r"(?:my\s*name\s*is|this\s*is)\s*([A-Z][a-z]+(?:\s+[A-Z][a-z]+){0,2})\b", text)
+    if m:
+        return m.group(1).strip()
+    m = re.search(r"\bI\s*am\s+(?!from\b)([A-Z][a-z]+(?:\s+[A-Z][a-z]+){0,2})\b", text)
+    if m:
+        return m.group(1).strip()
+    return None
+
+def _name_signature(lines: List[str]) -> Optional[str]:
+    for ln in lines[-6:]:
+        if "@" in ln or re.search(r"\d", ln):
+            continue
+        if re.match(r"^[A-Z][a-z]+(?:\s+[A-Z][a-z]+){0,2}$", ln.strip()):
+            return ln.strip()
+    return None
+
+def _address(text: str) -> Optional[str]:
+    m = re.search(r"(?:i\s*am\s*from|located\s*at|based\s*in)\s*([A-Za-z0-9,\- ]+)", text, re.I)
+    if m:
+        return m.group(1).strip(" ,.;")
+    m = re.search(r"(?:address|deliver\s*to|delivery\s*location|ship\s*to)\s*[:\-–—=]?\s*([^\n\.]+)", text, re.I)
+    if m:
+        return m.group(1).strip(" ,.;")
+    return None
+
+def _product(text: str) -> Optional[str]:
+    # true labeled product
+    m = re.search(r"(?:product\s*name|product|item|model)\s*[:\-–—=]\s*([^\n,\.]+)", text, re.I)
+    if m:
+        return m.group(1).strip(" ,.;")
+    # conversational: carefully bounded, stop at comma/period/“i need/need/on or before/by”
+    m = re.search(
+        r"(?:i\s*(?:want|need|would\s*like|am\s*looking\s*for|want\s*to\s*buy)\s*(?:the\s*)?(?:product|item)?(?:\s*(?:namely|called))?\s+)"
+        r"([A-Za-z0-9][A-Za-z0-9\s\-\&\(\)\/]+?)"
+        r"(?:\s*,|\s*\.\s*|\s+and\s+i\s+need|\s+i\s+need|\s+on\s+or\s+before|\s+by\b|\n|$)",
+        text, re.I
+    )
+    if m:
+        return m.group(1).strip(" ,.;")
+    return None
+
+# -------------- main --------------
 def extract_order_details(text: str, subject: Optional[str] = None) -> Dict[str, Optional[str]]:
     details = {
         "product": None,
@@ -140,92 +200,78 @@ def extract_order_details(text: str, subject: Optional[str] = None) -> Dict[str,
     raw = _normalize(text)
     lines = _split_lines(raw)
 
-    # Pass 1: key:value style extraction per line (robust for OCR)
+    # PASS 1: only real labeled key:value lines
     for i, ln in enumerate(lines):
-        low = ln.lower()
-
-        # PRODUCT
-        if details["product"] is None and _match_label(low, LABELS["product"]):
-            details["product"] = _extend_wrapped_value(i, lines)
-
-        # QUANTITY
-        if details["quantity"] is None and _match_label(low, LABELS["quantity"]):
-            val = _extend_wrapped_value(i, lines)
-            details["quantity"] = _quantity_from_text(val) or val
-
-        # DUE DATE
-        if details["due_date"] is None and _match_label(low, LABELS["due_date"]):
-            segment = _extend_wrapped_value(i, lines)
-            # parse just this segment first
-            dt = dateparser.parse(segment, settings={"PREFER_DATES_FROM": "future"})
-            if dt:
-                details["due_date"] = dt.date().isoformat()
-
-        # ADDRESS
-        if details["retailer_address"] is None and _match_label(low, LABELS["address"]):
-            addr = _extend_wrapped_value(i, lines)
-            # Trim trailing stop phrases
-            stop = STOP_AFTER_VALUE.search(addr)
-            if stop:
-                addr = addr[:stop.start()].strip(" ,.;")
-            details["retailer_address"] = addr
-
-        # RETAILER NAME (explicit label)
-        if details["retailer_name"] is None and _match_label(low, LABELS["retailer_name"]):
-            nm = _extend_wrapped_value(i, lines)
-            # Remove trailing words that look like labels bleeding through
-            nm = re.sub(r"\b(retailer\s*name|quantity|due\s*date|address|email)\b.*$", "", nm, flags=re.IGNORECASE).strip(" ,.;")
-            # require at least 2 tokens to avoid "R"
-            if len(nm.split()) >= 2:
-                details["retailer_name"] = nm
-
-        # RETAILER EMAIL (explicit label or anywhere)
-        if details["retailer_email"] is None and (_match_label(low, LABELS["email"]) or "@" in ln):
-            em = _email_from_text(ln)
+        # product
+        if not details["product"]:
+            v = _kv_value(ln, LABELS["product"])
+            if v:
+                details["product"] = _extend_wrapped_value(i, lines, v)
+                continue
+        # quantity
+        if not details["quantity"]:
+            v = _kv_value(ln, LABELS["quantity"])
+            if v:
+                details["quantity"] = _quantity(v) or v
+        # due date
+        if not details["due_date"]:
+            v = _kv_value(ln, LABELS["due_date"])
+            if v:
+                dt = _find_best_date(v)
+                if dt:
+                    details["due_date"] = dt
+        # address
+        if not details["retailer_address"]:
+            v = _kv_value(ln, LABELS["address"])
+            if v:
+                details["retailer_address"] = _extend_wrapped_value(i, lines, v)
+        # name
+        if not details["retailer_name"]:
+            v = _kv_value(ln, LABELS["retailer_name"])
+            if v and len(v.split()) >= 1:
+                details["retailer_name"] = re.sub(r"\b(retailer|customer|company|name)\b", "", v, flags=re.I).strip(" ,.;")
+        # email anywhere
+        if not details["retailer_email"]:
+            em = _email(ln)
             if em:
                 details["retailer_email"] = em
 
-    # Pass 2: subject-based product fallback
-    if not details["product"] and subject:
-        m = re.search(r"(?:order\s*for|place\s*order\s*for|po\s*for)\s+(.+)", subject, re.IGNORECASE)
-        if m:
-            details["product"] = m.group(1).strip(" .")
-
-    # Pass 3: global fallbacks
-
-    # Date fallback: scan whole text for any plausible future date
-    if not details["due_date"]:
-        details["due_date"] = _first_future_date(raw)
-
-    # Quantity fallback: if not found near label, scan whole text
+    # PASS 2: conversational/full-text fallbacks
+    if not details["product"]:
+        details["product"] = _product(raw)
     if not details["quantity"]:
-        m = re.search(r"\b(\d{1,7})\s*(?:units?|pcs?|pieces?|nos?)?\b", raw, re.IGNORECASE)
-        if m:
-            details["quantity"] = m.group(1)
-
-    # Retailer email fallback
+        details["quantity"] = _quantity(raw)
+    if not details["due_date"]:
+        details["due_date"] = _find_best_date(raw)
+    if not details["retailer_address"]:
+        details["retailer_address"] = _address(raw)
     if not details["retailer_email"]:
-        details["retailer_email"] = _email_from_text(raw)
-
-    # Retailer name fallback: signature block
+        details["retailer_email"] = _email(raw)
     if not details["retailer_name"]:
-        sig = _signature_name(lines)
-        if sig and len(sig.split()) >= 2:
-            details["retailer_name"] = sig
-
-    # Last-resort NER fallback for retailer name
+        details["retailer_name"] = _name_conversational(raw) or _name_signature(lines)
     if not details["retailer_name"]:
-        doc = nlp(raw)
-        for ent in doc.ents:
-            if ent.label_ in ("ORG", "PERSON") and len(ent.text.split()) >= 2:
+        # last resort: spaCy ORG/PERSON
+        for ent in nlp(raw).ents:
+            if ent.label_ in ("ORG", "PERSON") and len(ent.text.split()) >= 1:
                 details["retailer_name"] = ent.text.strip()
                 break
 
-    # Final cleanup: prevent label leakage like "Tamil Nadu Retailer Name"
+    # PASS 3: subject help
+    if subject and not details["product"]:
+        m = re.search(r"(?:order\s*for|place\s*order\s*for|places?\s+new\s+order\s*for|po\s*for)\s+(.+)", subject, re.I)
+        if m:
+            details["product"] = m.group(1).strip(" .")
+    if subject and not details["due_date"]:
+        maybe = _find_best_date(subject)
+        if maybe:
+            details["due_date"] = maybe
+
+    # Cleanups
+    if details["product"]:
+        details["product"] = re.sub(r"\b(i\s*want|need|product|item|model|called|namely|to\s*buy)\b", "", details["product"], flags=re.I).strip(" ,.;")
+    if details["retailer_address"]:
+        details["retailer_address"] = re.sub(r"\b(address|deliver\s*to|delivery\s*location|ship\s*to|located\s*at|based\s*in|i\s*am\s*from)\b", "", details["retailer_address"], flags=re.I).strip(" ,.;")
     if details["retailer_name"]:
-        details["retailer_name"] = re.sub(
-            r"\b(retailer\s*name|quantity|due\s*date|address|email)\b.*$",
-            "", details["retailer_name"], flags=re.IGNORECASE
-        ).strip(" ,.;")
+        details["retailer_name"] = re.sub(r"\b(my\s*name\s*is|this\s*is|i\s*am)\b", "", details["retailer_name"], flags=re.I).strip(" ,.;")
 
     return details

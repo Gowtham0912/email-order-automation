@@ -43,13 +43,14 @@
     @keyframes l19 {
       100% { transform: rotate(1turn); }
     }
+  
   </style>
 </head>
 
 <body class="font-sans bg-[#fdca5e] text-center m-0">
 
   <!-- Header -->
-  <div class="bg-white text-white px-5 py-3 flex items-center mx-5 mt-5 rounded">
+  <div class="bg-white text-white px-4 py-3 flex items-center mx-5 mt-5 rounded">
     <div class="flex items-center space-x-3">
       <img src="/static/logo.png" alt="Logo" class="w-12 object-contain" />
       <h1 class="m-0 text-black font-bold text-2xl font-semibold">OrderIQ</h1>
@@ -63,18 +64,62 @@
       </div>
 
       <div id="userDropdown"
-        class="hidden absolute right-0 mt-2 bg-white text-gray-800 min-w-[180px] rounded-lg shadow-lg text-left z-50">
-        <p class="px-4 py-2 border-b border-gray-200 text-sm text-gray-600">{{ session['email_user'] }}</p>
-        <button onclick="window.location.href='/logout'"
-          class="w-full text-left px-4 py-2 text-sm font-bold text-red-600 hover:bg-gray-100 transition">
-          🚪 Logout
-        </button>
-      </div>
+  class="hidden absolute right-0 mt-5 bg-white text-gray-800 min-w-[180px] rounded-lg shadow-lg z-50">
+  
+  <p class="px-4 py-2 border-b border-gray-200 text-sm text-gray-600 rounded-lg">
+    {{ session['email_user'] }}
+  </p>
+  
+  <button onclick="window.location.href='/logout'"
+    class="w-full text-left px-4 py-2 text-sm font-bold text-red-600 hover:bg-gray-100 transition flex items-center gap-2 rounded-lg">
+    
+    <!-- Logout SVG Icon -->
+    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"
+      stroke-width="1.5" stroke="currentColor" class="w-5 h-5">
+      <path stroke-linecap="round" stroke-linejoin="round"
+        d="M8.25 9V5.25A2.25 2.25 0 0 1 10.5 3h6a2.25 2.25 0 0 1 2.25 2.25v13.5A2.25 2.25 0 0 1 16.5 21h-6a2.25 2.25 0 0 1-2.25-2.25V15m-3 0-3-3m0 0 3-3m-3 3H15" />
+    </svg>
+
+    Logout
+  </button>
+</div>
+
     </div>
   </div>
 
   <!-- Status Message -->
-  <p id="status-message" class="font-bold mt-3"></p>
+  <p id="status-message" class="font mt-3"></p>
+
+  <!-- Unique Indication Elements -->
+  <div id="loading-indicator" class="hidden">
+    <div class="loader"></div>
+    <p class="text-[#7c5327] font-semibold mt-2">Scanning for new emails...</p>
+  </div>
+
+  <!-- No-email indicator (warning / info icon) -->
+<span id="no-email-indicator"
+      class="hidden inline-flex items-center gap-2 text-[#7c5327] font-semibold mt-2 bg-white px-5 py-2 rounded-3xl shadow-lg transition-all duration-500"
+      role="status" aria-live="polite">
+  <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"
+       stroke-width="1.5" stroke="currentColor" class="h-5 w-5">
+    <path stroke-linecap="round" stroke-linejoin="round"
+          d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126ZM12 15.75h.007v.008H12v-.008Z" />
+  </svg>
+  <span>No new order emails found.</span>
+</span>
+
+<!-- Mail updated indicator -->
+<span id="mail-updated-indicator"
+      class="hidden inline-flex items-center gap-2 text-green-700 font-semibold mt-2 bg-white px-5 py-2 rounded-3xl shadow-lg transition-all duration-500"
+      role="status" aria-live="polite">
+  <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"
+       stroke-width="1.5" stroke="currentColor" class="h-5 w-5">
+    <path stroke-linecap="round" stroke-linejoin="round"
+          d="M9 12.75 11.25 15 15 9.75M21 12c0 1.268-.63 2.39-1.593 3.068a3.745 3.745 0 0 1-1.043 3.296 3.745 3.745 0 0 1-3.296 1.043A3.745 3.745 0 0 1 12 21c-1.268 0-2.39-.63-3.068-1.593a3.746 3.746 0 0 1-3.296-1.043 3.745 3.745 0 0 1-1.043-3.296A3.745 3.745 0 0 1 3 12c0-1.268.63-2.39 1.593-3.068a3.745 3.745 0 0 1 1.043-3.296 3.746 3.746 0 0 1 3.296-1.043A3.746 3.746 0 0 1 12 3c1.268 0 2.39.63 3.068 1.593a3.746 3.746 0 0 1 3.296 1.043 3.746 3.746 0 0 1 1.043 3.296A3.745 3.745 0 0 1 21 12Z" />
+  </svg>
+  <span>Mail data updated successfully!</span>
+</span>
+
 
   <!-- Buttons -->
   <div class="w-[95%] h-12 mx-auto flex justify-between items-center relative">
@@ -160,7 +205,7 @@
     <div class="bg-white rounded-xl shadow-lg p-6 w-[350px] text-center">
       <h3 class="text-lg font-semibold mb-4">Are you sure you want to delete this order?</h3>
       <button id="confirmDeleteBtn"
-        class="bg-[#007BFF] hover:bg-[#0056b3] text-white px-4 py-2 rounded-md mx-2 font-medium transition">Yes, Delete</button>
+        class="bg-[#7c5327] hover:bg-black text-white px-4 py-2 rounded-md mx-2 font-medium transition">Yes, Delete</button>
       <button onclick="closeDeleteModal()"
         class="bg-gray-300 hover:bg-gray-400 text-gray-800 px-4 py-2 rounded-md mx-2 font-medium transition">Cancel</button>
     </div>
@@ -216,19 +261,35 @@
       loadOrders();
     });
 
-    // --- Scan Button with Loader ---
+    // --- Scan Button with Unique Indicators ---
     document.getElementById("scanBtn").addEventListener("click", async () => {
-      const status = document.getElementById("status-message");
-      status.innerHTML = '<div class="loader"></div><p class="text-[#7c5327] font-semibold mt-2">Scanning for new emails...</p>';
+      const loading = document.getElementById("loading-indicator");
+      const noEmail = document.getElementById("no-email-indicator");
+      const updated = document.getElementById("mail-updated-indicator");
+
+      // Reset all indicators
+      loading.classList.add("hidden");
+      noEmail.classList.add("hidden");
+      updated.classList.add("hidden");
+
+      // Show loading
+      loading.classList.remove("hidden");
 
       const response = await fetch("/scan", { method: "POST" });
       const result = await response.json();
 
-      status.innerHTML = `<p>${result.message}</p>`;
+      loading.classList.add("hidden");
+
+      if (result.message.includes("No new order emails")) {
+        noEmail.classList.remove("hidden");
+      } else {
+        updated.classList.remove("hidden");
+      }
+
       loadOrders();
     });
 
-    async function loadOrders() {
+        async function loadOrders() {
       const res = await fetch('/orders');
       const data = await res.json();
       const list = document.getElementById("ordersList");
@@ -252,6 +313,63 @@
         list.insertAdjacentHTML('beforeend', row);
       });
     }
+
+    // ✅ Correctly separated second script (not nested)
+    function showIndicator(type) {
+      const container = document.getElementById("toast-container") || document.body;
+      const toast = document.createElement("div");
+      toast.className = "fixed top-5 right-5 bg-white shadow-lg rounded-2xl px-5 py-3 flex items-center gap-2 popup-animation";
+      toast.style.border = "1px solid #ddd";
+
+      let message = "";
+      let icon = "";
+
+      if (type === "no-email") {
+        message = "No new order emails found.";
+        icon = `
+          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"
+               stroke-width="1.5" stroke="currentColor" class="h-5 w-5 text-[#7c5327]">
+            <path stroke-linecap="round" stroke-linejoin="round"
+                  d="M12 9v3.75M2.697 16.126c-.866 1.5.217 3.374 
+                  1.948 3.374h14.71c1.73 0 2.813-1.874 
+                  1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-
+                  3.898 0L2.697 16.126ZM12 15.75h.007v.008H12v-.008Z"/>
+          </svg>`;
+      } else if (type === "mail-updated") {
+        message = "Mail data updated successfully!";
+        icon = `
+          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"
+               stroke-width="1.5" stroke="currentColor" class="h-5 w-5 text-green-700">
+            <path stroke-linecap="round" stroke-linejoin="round"
+                  d="M9 12.75 11.25 15 15 9.75M21 12c0 1.268-.63 
+                  2.39-1.593 3.068a3.745 3.745 0 0 1-1.043 
+                  3.296 3.745 3.745 0 0 1-3.296 
+                  1.043A3.745 3.745 0 0 1 12 
+                  21c-1.268 0-2.39-.63-3.068-
+                  1.593a3.746 3.746 0 0 1-3.296-
+                  1.043 3.745 3.745 0 0 1-1.043-
+                  3.296A3.745 3.745 0 0 1 3 
+                  12c0-1.268.63-2.39 1.593-
+                  3.068a3.745 3.745 0 0 1 
+                  1.043-3.296 3.746 3.746 0 0 1 
+                  3.296-1.043A3.746 3.746 0 0 1 
+                  12 3c1.268 0 2.39.63 3.068 
+                  1.593a3.746 3.746 0 0 1 
+                  3.296 1.043 3.746 3.746 0 0 1 
+                  1.043 3.296A3.745 3.745 0 0 1 
+                  21 12Z"/>
+          </svg>`;
+      }
+
+      toast.innerHTML = `${icon}<span>${message}</span>`;
+      container.appendChild(toast);
+
+      setTimeout(() => {
+        toast.classList.add("fade-out");
+        setTimeout(() => toast.remove(), 600);
+      }, 2500);
+    }
+
   </script>
 </body>
 </html>

@@ -2,73 +2,150 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <title>🔐 ERP Login</title>
+  <title>OrderIQ</title>
+  <link rel="icon" type="image/png" href="{{ url_for('static', filename='logo.png') }}">
+  <script src="https://cdn.tailwindcss.com"></script>
+
   <style>
-    body {
-      font-family: Arial, sans-serif;
-      background: linear-gradient(135deg, #007BFF, #00BCD4);
-      height: 100vh;
-      display: flex;
-      justify-content: center;
-      align-items: center;
-      margin: 0;
-    }
-    .login-container {
-      background: #fff;
-      padding: 30px 40px;
-      border-radius: 12px;
-      box-shadow: 0 0 20px rgba(0,0,0,0.2);
-      width: 350px;
-      text-align: center;
-      animation: fadeIn 0.5s ease;
-    }
-    h2 {
-      margin-bottom: 20px;
-      color: #333;
-    }
-    input[type="text"], input[type="password"] {
-      width: 90%;
-      padding: 10px;
-      margin: 10px 0;
-      border: 1px solid #ccc;
-      border-radius: 8px;
-      font-size: 15px;
-    }
-    button {
-      background-color: #007BFF;
-      color: white;
-      border: none;
-      padding: 10px 20px;
-      border-radius: 8px;
-      cursor: pointer;
-      font-size: 16px;
-      transition: background 0.3s ease;
-    }
-    button:hover {
-      background-color: #0056b3;
-    }
-    .error {
-      color: red;
-      margin-top: 10px;
-      font-size: 14px;
-    }
     @keyframes fadeIn {
       from { opacity: 0; transform: scale(0.9); }
       to { opacity: 1; transform: scale(1); }
     }
+    .fade-in { animation: fadeIn 0.5s ease; }
   </style>
 </head>
-<body>
-  <div class="login-container">
-    <h2>🔐 ERP Login</h2>
-    <form method="POST">
-      <input type="text" name="email" placeholder="Enter Gmail address" required><br>
-      <input type="password" name="password" placeholder="Enter App Password" required><br>
-      <button type="submit">Login</button>
+
+<body class="h-screen m-0 flex justify-center items-center bg-gradient-to-br from-[#fdca5e] to-[#a88436] font-sans">
+
+  <!-- Popup Info Modal -->
+  <div id="infoModal" class="hidden fixed inset-0 z-50 bg-black bg-opacity-50 flex justify-center items-center">
+    <div class="bg-white p-6 rounded-lg shadow-lg max-w-md text-left relative flex flex-col">
+      <h2 class="text-xl font-semibold mb-2 text-[#7c5327]">What is a Google App Password?</h2>
+      <p class="text-sm text-gray-700 mb-3">
+        A <b>Google App Password</b> is a 16-character passcode that allows apps or devices to access your Google account securely.
+        It’s required when using Gmail in external apps (like OrderIQ) if 2-Step Verification is enabled.
+      </p>
+      <h3 class="font-medium mb-1 text-[#7c5327]">How to Create One:</h3>
+      <ol class="list-decimal list-inside text-sm text-gray-700 space-y-1">
+        <li>Go to <a href="https://myaccount.google.com/security" target="_blank" class="text-blue-600 underline">Google Account → Security</a>.</li>
+        <li>Enable <b>2-Step Verification</b>.</li>
+        <li>After enabling, go to Security → <b>App Passwords</b>.</li>
+        <li>Select “Mail” as the app and “Other (Custom name)” like “OrderIQ”.</li>
+        <li>Generate the password and copy the 16-character code.</li>
+      </ol>
+
+      <!-- ✅ Close button at bottom-right -->
+      <div class="mt-6 flex justify-end">
+        <button id="closeModal" 
+          class="bg-[#7c5327] text-white px-4 py-2 rounded hover:bg-black transition">
+          Close
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Login Card -->
+  <div class="relative bg-white p-8 rounded-xl shadow-2xl w-[350px] text-center fade-in">
+
+    <!-- ℹ️ Info Button -->
+    <button id="infoBtn" 
+      class="absolute top-3 right-3 bg-white p-1.5 rounded-full hover:bg-gray-100 transition"
+      title="What is App Password?">
+      <svg xmlns="http://www.w3.org/2000/svg" fill="none" 
+           viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" 
+           class="size-5">
+        <path stroke-linecap="round" stroke-linejoin="round" 
+              d="M9.879 7.519c1.171-1.025 3.071-1.025 
+              4.242 0 1.172 1.025 1.172 2.687 
+              0 3.712-.203.179-.43.326-.67.442
+              -.745.361-1.45.999-1.45 1.827v.75M21 
+              12a9 9 0 1 1-18 0 9 9 0 0 
+              1 18 0Zm-9 5.25h.008v.008H12v-.008Z" />
+      </svg>
+    </button>
+
+    <!-- Content -->
+    <img src="/static/logo.png" class="w-12 mx-auto mt-10" alt="">
+    <h1 class="font-bold text-2xl">Welcome to OrderIQ</h1>
+    <h2 class="mb-5 mt-2.5 text-[15px] text-gray-800">ERP Login</h2>
+
+    <form method="POST" class="space-y-4 mb-10">
+      <input 
+        type="text" 
+        name="email" 
+        placeholder="Enter Gmail address" 
+        required 
+        class="w-[90%] px-3 py-2 border border-gray-300 rounded-lg text-[15px] focus:outline-none focus:ring-2 focus:ring-[#7c5327]"
+      >
+
+      <!-- Password field with toggle -->
+      <div class="relative w-[90%] mx-auto">
+        <input 
+          id="password"
+          type="password" 
+          name="password" 
+          placeholder="Enter App Password" 
+          required 
+          class="w-full px-3 py-2 border border-gray-300 rounded-lg text-[15px] focus:outline-none focus:ring-2 focus:ring-[#7c5327]"
+        >
+        <button type="button" id="togglePassword" class="absolute right-3 top-2.5 text-gray-500 transition-colors duration-300">
+          <svg xmlns="http://www.w3.org/2000/svg" fill="none" 
+               viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" 
+               class="w-5 h-5">
+            <path stroke-linecap="round" stroke-linejoin="round" 
+                  d="M2.036 12.322a1.012 1.012 0 
+                  010-.644C3.423 7.51 7.312 4.5 
+                  12 4.5c4.688 0 8.577 3.01 9.964 
+                  7.178a1.012 1.012 0 010 .644C20.577 
+                  16.49 16.688 19.5 12 19.5c-4.688 
+                  0-8.577-3.01-9.964-7.178z" />
+            <path stroke-linecap="round" stroke-linejoin="round" 
+                  d="M15 12a3 3 0 11-6 0 3 3 
+                  0 016 0z" />
+          </svg>
+        </button>
+      </div>
+      
+      <button 
+        type="submit" 
+        class="bg-[#7c5327] hover:bg-black text-white px-3 w-[90%] py-2 rounded-lg text-[16px] transition duration-300"
+      >
+        Login
+      </button>
     </form>
+
     {% if error %}
-      <p class="error">{{ error }}</p>
+      <p class="text-red-600 mt-3 text-sm">{{ error }}</p>
     {% endif %}
   </div>
+
+  <!-- JavaScript -->
+  <script>
+    // 👁️ Toggle password visibility (color only)
+    const passwordInput = document.getElementById('password');
+    const togglePassword = document.getElementById('togglePassword');
+    let visible = false;
+
+    togglePassword.addEventListener('click', () => {
+      visible = !visible;
+      passwordInput.type = visible ? 'text' : 'password';
+
+      // ✅ Change color only, keep same icon
+      togglePassword.querySelector('svg').classList.toggle('text-[#7c5327]', visible);
+      togglePassword.querySelector('svg').classList.toggle('text-gray-500', !visible);
+    });
+
+    // ℹ️ Info Modal Control
+    const infoBtn = document.getElementById('infoBtn');
+    const infoModal = document.getElementById('infoModal');
+    const closeModal = document.getElementById('closeModal');
+    
+    infoBtn.addEventListener('click', () => infoModal.classList.remove('hidden'));
+    closeModal.addEventListener('click', () => infoModal.classList.add('hidden'));
+    infoModal.addEventListener('click', (e) => {
+      if (e.target === infoModal) infoModal.classList.add('hidden');
+    });
+  </script>
+
 </body>
 </html>
