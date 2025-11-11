@@ -43,6 +43,29 @@
     @keyframes l19 {
       100% { transform: rotate(1turn); }
     }
+
+    .sticky {
+    backdrop-filter: blur(4px);
+  }
+  
+  @keyframes popUp {
+  0% {
+    opacity: 0;
+    transform: translate(-50%, 20px) scale(0.8);
+  }
+  50% {
+    opacity: 1;
+    transform: translate(-50%, -4px) scale(1.05);
+  }
+  100% {
+    opacity: 1;
+    transform: translate(-50%, 0) scale(1);
+  }
+}
+
+.animate-pop {
+  animation: popUp 0.6s ease-out;
+}
   
   </style>
 </head>
@@ -50,7 +73,7 @@
 <body class="font-sans bg-[#fdca5e] text-center m-0">
 
   <!-- Header -->
-  <div class="bg-white text-white px-4 py-3 flex items-center mx-5 mt-5 rounded">
+  <div class="bg-white text-white px-4 py-3 flex items-center mx-5 mt-5 rounded-2xl">
     <div class="flex items-center space-x-3">
       <img src="/static/logo.png" alt="Logo" class="w-12 object-contain" />
       <h1 class="m-0 text-black font-bold text-2xl font-semibold">OrderIQ</h1>
@@ -71,35 +94,37 @@
   </p>
   
   <button onclick="window.location.href='/logout'"
-    class="w-full text-left px-4 py-2 text-sm font-bold text-red-600 hover:bg-gray-100 transition flex items-center gap-2 rounded-lg">
-    
-    <!-- Logout SVG Icon -->
-    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"
-      stroke-width="1.5" stroke="currentColor" class="w-5 h-5">
-      <path stroke-linecap="round" stroke-linejoin="round"
-        d="M8.25 9V5.25A2.25 2.25 0 0 1 10.5 3h6a2.25 2.25 0 0 1 2.25 2.25v13.5A2.25 2.25 0 0 1 16.5 21h-6a2.25 2.25 0 0 1-2.25-2.25V15m-3 0-3-3m0 0 3-3m-3 3H15" />
-    </svg>
+  class="w-full px-4 py-2 text-sm text-red-600 hover:bg-gray-100 transition flex items-center justify-center  rounded-lg">
 
-    Logout
-  </button>
+  <!-- Logout SVG Icon -->
+  <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"
+    stroke-width="1.5" stroke="currentColor" class="w-5 h-5">
+    <path stroke-linecap="round" stroke-linejoin="round"
+      d="M8.25 9V5.25A2.25 2.25 0 0 1 10.5 3h6a2.25 2.25 0 0 1 2.25 2.25v13.5A2.25 2.25 0 0 1 16.5 21h-6a2.25 2.25 0 0 1-2.25-2.25V15m-3 0-3-3m0 0 3-3m-3 3H15" />
+  </svg>
+
+  Logout
+</button>
+
 </div>
 
     </div>
   </div>
 
   <!-- Status Message -->
-  <p id="status-message" class="font mt-3"></p>
+  <p id="status-message" class="font mt-3 "></p>
 
   <!-- Unique Indication Elements -->
-  <div id="loading-indicator" class="hidden">
-    <div class="loader"></div>
-    <p class="text-[#7c5327] font-semibold mt-2">Scanning for new emails...</p>
-  </div>
+  <div id="loading-indicator" class="hidden fixed inset-0 flex flex-col items-center justify-center bg-white/50 z-50">
+  <div class="loader"></div>
+  <p class="text-[#7c5327] font-semibold mt-2">Scanning for new emails...</p>
+</div>
+
 
   <!-- No-email indicator (warning / info icon) -->
 <span id="no-email-indicator"
-      class="hidden inline-flex items-center gap-2 text-[#7c5327] font-semibold mt-2 bg-white px-5 py-2 rounded-3xl shadow-lg transition-all duration-500"
-      role="status" aria-live="polite">
+  class="hidden absolute left-1/2 transform -translate-x-1/2 inline-flex items-center gap-2 text-[#7c5327] font-semibold mt-2 bg-white px-5 py-2 rounded-3xl shadow-lg transition-all duration-500"
+  role="status" aria-live="polite">
   <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"
        stroke-width="1.5" stroke="currentColor" class="h-5 w-5">
     <path stroke-linecap="round" stroke-linejoin="round"
@@ -108,10 +133,11 @@
   <span>No new order emails found.</span>
 </span>
 
+
 <!-- Mail updated indicator -->
 <span id="mail-updated-indicator"
-      class="hidden inline-flex items-center gap-2 text-green-700 font-semibold mt-2 bg-white px-5 py-2 rounded-3xl shadow-lg transition-all duration-500"
-      role="status" aria-live="polite">
+  class="hidden absolute left-1/2 transform -translate-x-1/2 inline-flex items-center gap-2 text-green-700 font-semibold mt-2 bg-white px-5 py-2 rounded-3xl shadow-lg transition-all duration-500"
+  role="status" aria-live="polite">
   <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"
        stroke-width="1.5" stroke="currentColor" class="h-5 w-5">
     <path stroke-linecap="round" stroke-linejoin="round"
@@ -121,8 +147,9 @@
 </span>
 
 
+
   <!-- Buttons -->
-  <div class="w-[95%] h-12 mx-auto flex justify-between items-center relative">
+  <div class="w-[95%] h-12 mx-auto flex justify-between items-center relative mt-6">
 
     <!-- Left: Scan Button -->
     <div class="flex items-center">
@@ -154,20 +181,24 @@
       <div id="downloadMenu"
         class="hidden absolute right-0 top-14 bg-white shadow-lg rounded-md w-48 text-left border border-gray-200 z-50">
         <button onclick="window.location.href='/export/pdf'"
-          class="w-full text-gray-700 hover:bg-black hover:text-white px-4 py-2 flex items-center gap-2 transition rounded-md">
-          📄 Download as PDF
+          class="w-full text-gray-700 hover:bg-gray-100  px-3 py-2 flex items-center gap-2 transition rounded-md">
+          <img src="/static/Pdf.svg" class="w-5 icon-hover-white" alt="">
+ Download as PDF
         </button>
         <button onclick="window.location.href='/export/excel'"
-          class="w-full text-gray-700 hover:bg-black hover:text-white px-4 py-2 flex items-center gap-2 transition rounded-md">
-          📊 Download as Excel
+          class="w-full text-gray-700 hover:bg-gray-100  px-3 py-2 flex items-center gap-2 transition rounded-md">
+          <img src="/static/Excel.svg" class="w-5" alt="">Download as Excel
         </button>
       </div>
     </div>
   </div>
 
   <!-- Orders Table -->
-  <div class="mt-6 w-[95%] mx-auto bg-white rounded-lg shadow-md border border-gray-300 overflow-y-auto max-h-[70vh] p-3">
-    <div class="flex bg-[#7c5327] text-white font-semibold py-3 px-4 rounded-md text-sm">
+ <div class="mt-6 w-[95%] mx-auto bg-white rounded-lg shadow-md border border-gray-300 px-3 pt-3 mb-15 ">
+  
+  <!-- Header row (fixed within this container) -->
+  <div class="bg-[#7c5327] text-white font-semibold py-3 px-4 rounded-md text-sm sticky top-0 z-10">
+    <div class="flex">
       <div class="w-1/12">Order ID</div>
       <div class="w-2/12">Product Name</div>
       <div class="w-1/12">Quantity</div>
@@ -178,26 +209,31 @@
       <div class="w-3/12">Email Subject</div>
       <div class="w-1/12">Actions</div>
     </div>
-
-    <div id="ordersList" class="divide-y divide-gray-200">
-      {% for order in orders %}
-      <div class="flex items-center py-3 px-4 hover:bg-gray-50 text-sm">
-        <div class="w-1/12">{{ order.id }}</div>
-        <div class="w-2/12">{{ order.product_name }}</div>
-        <div class="w-1/12">{{ order.quantity_ordered }}</div>
-        <div class="w-2/12">{{ order.delivery_due_date }}</div>
-        <div class="w-2/12">{{ order.retailer_name or '' }}</div>
-        <div class="w-2/12">{{ order.retailer_email }}</div>
-        <div class="w-3/12 truncate">{{ order.retailer_address }}</div>
-        <div class="w-3/12 truncate">{{ order.client_email_subject }}</div>
-        <div class="w-1/12">
-          <button onclick="openDeleteModal({{ order.id }})"
-            class="bg-[#dc3545] hover:bg-[#b02a37] text-white px-3 py-1 rounded transition">Delete</button>
-        </div>
-      </div>
-      {% endfor %}
-    </div>
   </div>
+
+  <!-- Scrollable area for rows only -->
+  <div class="divide-y divide-gray-200 overflow-y-auto max-h-[60vh]" id="ordersList">
+    {% for order in orders %}
+    <div class="flex items-center py-3 px-4 hover:bg-gray-50 text-sm">
+      <div class="w-1/12">{{ order.id }}</div>
+      <div class="w-2/12">{{ order.product_name }}</div>
+      <div class="w-1/12">{{ order.quantity_ordered }}</div>
+      <div class="w-2/12">{{ order.delivery_due_date }}</div>
+      <div class="w-2/12">{{ order.retailer_name or '' }}</div>
+      <div class="w-2/12">{{ order.retailer_email }}</div>
+      <div class="w-3/12 truncate">{{ order.retailer_address }}</div>
+      <div class="w-3/12 truncate">{{ order.client_email_subject }}</div>
+      <div class="w-1/12">
+        <button onclick="openDeleteModal({{ order.id }})"
+          class="bg-[#dc3545] hover:bg-[#b02a37] text-white px-3 py-1 rounded transition">Delete</button>
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+
+</div>
+
+
 
   <!-- Delete Confirmation Modal -->
   <div id="deleteModal"
@@ -280,13 +316,29 @@
 
       loading.classList.add("hidden");
 
-      if (result.message.includes("No new order emails")) {
-        noEmail.classList.remove("hidden");
-      } else {
-        updated.classList.remove("hidden");
-      }
+     if (result.message.includes("No new order emails")) {
+  // Show "No new emails" message
+  noEmail.classList.remove("hidden");
+} else {
+  // ✅ Show "Mail updated" message
+  updated.classList.remove("hidden");
 
-      loadOrders();
+  // ✅ Load orders first
+  await loadOrders();
+
+  // ✅ After new mail is loaded, scroll table to bottom smoothly
+  const list = document.getElementById("ordersList");
+  list.scrollTo({
+    top: list.scrollHeight,
+    behavior: 'smooth'
+  });
+
+  return; // exit early since we handled this case
+}
+
+// For "no new emails", still refresh the list normally (optional)
+await loadOrders();
+
     });
 
         async function loadOrders() {
@@ -312,6 +364,7 @@
           </div>`;
         list.insertAdjacentHTML('beforeend', row);
       });
+   
     }
 
     // ✅ Correctly separated second script (not nested)
@@ -369,6 +422,25 @@
         setTimeout(() => toast.remove(), 600);
       }, 2500);
     }
+
+
+    function showIndicator(id) {
+  const el = document.getElementById(id);
+  el.classList.remove('hidden');
+
+  // Restart animation
+  el.classList.remove('animate-pop');
+  void el.offsetWidth; // Force reflow
+  el.classList.add('animate-pop');
+
+  // Hide again after 3 seconds (optional)
+  setTimeout(() => el.classList.add('hidden'), 10000);
+}
+
+// Example usage:
+showIndicator('mail-updated-indicator');
+showIndicator('no-email-indicator');
+// or
 
   </script>
 </body>
