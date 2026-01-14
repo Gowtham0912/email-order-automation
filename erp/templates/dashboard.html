@@ -152,17 +152,36 @@
   <div class="w-[95%] h-12 mx-auto flex justify-between items-center relative mt-6">
 
     <!-- Left: Scan Button -->
-    <div class="flex items-center">
-      <button id="scanBtn"
-        class="flex items-center gap-2 bg-[#7c5327] hover:bg-black text-white px-6 py-2 rounded-md font-medium transition">
-        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"
-             stroke-width="1.5" stroke="currentColor" class="w-5 h-5">
-          <path stroke-linecap="round" stroke-linejoin="round"
-                d="m21 21-5.197-5.197m0 0A7.5 7.5 0 1 0 5.196 5.196a7.5 7.5 0 0 0 10.607 10.607Z" />
-        </svg>
-        <span>Scan for New Emails</span>
-      </button>
-    </div>
+    <!-- Left: Scan Controls -->
+<div class="flex items-center gap-4">
+
+  <!-- Manual Scan Button -->
+  <div id="manualScanWrapper">
+    <button id="scanBtn"
+      class="flex items-center gap-2 bg-[#7c5327] hover:bg-black text-white px-6 py-2 rounded-md font-medium transition">
+      <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"
+           stroke-width="1.5" stroke="currentColor" class="w-5 h-5">
+        <path stroke-linecap="round" stroke-linejoin="round"
+              d="m21 21-5.197-5.197m0 0A7.5 7.5 0 1 0 5.196 5.196a7.5 7.5 0 0 0 10.607 10.607Z" />
+      </svg>
+      <span>Scan for New Emails</span>
+    </button>
+  </div>
+
+  <!-- Automatic Scan Toggle -->
+  <div class="flex items-center gap-2 bg-white px-4 py-2 rounded-md shadow-sm">
+    <label class="flex items-center cursor-pointer gap-2">
+      <span>Automatic Scan</span>
+      <input type="checkbox" id="autoScanToggle" class="sr-only">
+      <div class="w-10 h-5 bg-gray-300 rounded-full relative transition">
+        <div id="toggleDot"
+          class="w-4 h-4 bg-white rounded-full absolute top-0.5 left-0.5 transition"></div>
+      </div>
+    </label>
+  </div>
+
+</div>
+
 
     <!-- Right: Download Button -->
     <div class="relative flex items-center">
@@ -440,7 +459,33 @@ await loadOrders();
 // Example usage:
 showIndicator('mail-updated-indicator');
 showIndicator('no-email-indicator');
-// or
+
+const autoToggle = document.getElementById("autoScanToggle");
+const toggleDot = document.getElementById("toggleDot");
+const manualWrapper = document.getElementById("manualScanWrapper");
+
+function updateToggleUI(enabled) {
+  autoToggle.checked = enabled;
+  manualWrapper.style.display = enabled ? "none" : "block";
+  toggleDot.style.transform = enabled ? "translateX(20px)" : "translateX(0)";
+  toggleDot.parentElement.style.backgroundColor = enabled ? "#16a34a" : "#d1d5db";
+}
+
+// Load initial auto-scan state
+fetch("/auto-scan-status")
+  .then(res => res.json())
+  .then(data => updateToggleUI(data.auto_scan));
+
+// Toggle handler
+autoToggle.addEventListener("change", () => {
+  fetch("/toggle-auto-scan", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ enabled: autoToggle.checked })
+  });
+
+  updateToggleUI(autoToggle.checked);
+});
 
   </script>
   
