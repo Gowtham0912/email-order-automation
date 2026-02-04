@@ -18,7 +18,7 @@ app.secret_key = "super_secret_key_123"  # change in production
 # ---------------- AUTO SCAN STATE ----------------
 auto_scan_enabled = False
 auto_scan_thread = None
-AUTO_SCAN_INTERVAL = 30
+AUTO_SCAN_INTERVAL = 10 
 
 
 # ---------------- AUTO SCAN WORKER ----------------
@@ -70,12 +70,39 @@ def logout():
 # ======================================================
 # 🧠 DASHBOARD (ANALYTICS)  → dashboard.html (old home)
 # ======================================================
+
+
 @app.route("/dashboard")
 def dashboard():
     if "email_user" not in session:
         return redirect(url_for("login"))
 
     return render_template("dashboard.html")
+
+# ---------------- ANALYTICS PAGE ----------------
+@app.route("/analytics")
+def analytics():
+    if "email_user" not in session:
+        return redirect(url_for("login"))
+
+    return render_template("analytics.html")
+
+# ---------------- CONTACT PAGE ----------------
+@app.route("/contact")
+def contact():
+    if "email_user" not in session:
+        return redirect(url_for("login"))
+
+    return render_template("contact.html")
+
+# ---------------- ABOUT PAGE ----------------
+@app.route("/about")
+def about():
+    if "email_user" not in session:
+        return redirect(url_for("login"))
+
+    return render_template("about.html")
+
 
 
 # ---------------- ANALYTICS API ----------------

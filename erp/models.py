@@ -24,10 +24,12 @@ class PurchaseOrder(Base):
 
     # ---- Order Identification ----
     order_number = Column(String, unique=True, index=True)
+    order_date = Column(DateTime, default=datetime.utcnow)
 
     # ---- Order Details ----
     product_name = Column(String)
     quantity_ordered = Column(String)
+    unit = Column(String)                  # pcs / kg / g / litre
     delivery_due_date = Column(String)
 
     # ---- Retailer Details ----
@@ -35,17 +37,21 @@ class PurchaseOrder(Base):
     retailer_email = Column(String)
     retailer_address = Column(String)
 
-    # ---- AI & Automation Fields ----
+    # ---- AI / NLP ----
+    extracted_text = Column(String)         # raw email body
     confidence_score = Column(Float)
     priority_level = Column(String, default="Normal")
+
+    # ---- Duplicate Control ----
     duplicate_flag = Column(Boolean, default=False)
     email_hash = Column(String, unique=True, index=True)
 
-    # ---- Control & Audit ----
+    # ---- ERP Control ----
     order_status = Column(String, default="Pending")   # Approved / Needs Review / Rejected
     source_of_order = Column(String, default="Email")
     remarks = Column(String)
 
+    # ---- Audit ----
     created_at = Column(DateTime, default=datetime.utcnow)
     processed_at = Column(DateTime, default=datetime.utcnow)
 
@@ -53,7 +59,6 @@ class PurchaseOrder(Base):
     client_email_subject = Column(String)
 
 
-# Create table
 Base.metadata.create_all(engine)
 
 
@@ -67,20 +72,20 @@ def add_order(
     priority_level: str,
     remarks: str = None
 ):
-    """
-    Central ERP insert function
-    """
     try:
         order = PurchaseOrder(
             order_number=f"PO-{int(datetime.utcnow().timestamp())}",
 
             product_name=details.get("product"),
             quantity_ordered=details.get("quantity"),
+            unit=details.get("unit"),
             delivery_due_date=details.get("due_date"),
 
             retailer_name=details.get("retailer_name"),
             retailer_email=details.get("retailer_email"),
             retailer_address=details.get("retailer_address"),
+
+            extracted_text=details.get("raw_text"),
 
             confidence_score=confidence_score,
             priority_level=priority_level,

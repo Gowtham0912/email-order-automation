@@ -201,22 +201,28 @@
   <!-- Scrollable area for rows only -->
   <div class="divide-y divide-gray-200 overflow-y-auto max-h-[60vh]" id="ordersList">
     {% for order in orders %}
-    <div class="flex items-center py-3 px-4 hover:bg-gray-50 text-sm">
-      <div class="w-1/12">{{ order.id }}</div>
-      <div class="w-2/12">{{ order.product_name }}</div>
-      <div class="w-1/12">{{ order.quantity_ordered }}</div>
-      <div class="w-2/12">{{ order.delivery_due_date }}</div>
-      <div class="w-2/12">{{ order.retailer_name or '' }}</div>
-      <div class="w-2/12">{{ order.retailer_email }}</div>
-      <div class="w-3/12 truncate">{{ order.retailer_address }}</div>
-      <div class="w-3/12 truncate">{{ order.client_email_subject }}</div>
-      <!-- Status -->
+
+<!-- ✅ MAIN ROW (visible always) -->
+<div class="flex items-center py-3 px-4 hover:bg-gray-50 text-sm">
+  <div class="w-1/12">{{ order.id }}</div>
+  <div class="w-2/12">{{ order.product_name }}</div>
+  <div class="w-1/12">{{ order.quantity_ordered }}</div>
+  <div class="w-2/12">{{ order.delivery_due_date }}</div>
+  <div class="w-2/12">{{ order.retailer_name }}</div>
+  <div class="w-2/12">{{ order.retailer_email }}</div>
+  <div class="w-3/12 truncate">{{ order.retailer_address }}</div>
+  <div class="w-3/12 truncate">{{ order.client_email_subject }}</div>
+
+  <!-- Status / Priority / Confidence -->
+   <!-- Status -->
 <div class="w-1/12">
   <span class="px-2 py-1 rounded text-xs font-semibold
     {% if order.order_status == 'Approved' %}
       bg-green-200 text-green-800
-    {% else %}
+    {% elif order.order_status == 'Needs Review' %}
       bg-yellow-200 text-yellow-800
+    {% else %}
+      bg-red-200 text-red-800
     {% endif %}">
     {{ order.order_status }}
   </span>
@@ -248,12 +254,48 @@
   </span>
 </div>
 
-      <div class="w-1/12">
-        <button onclick="openDeleteModal({{ order.id }})"
-          class="bg-[#dc3545] hover:bg-[#b02a37] text-white px-3 py-1 rounded transition">Delete</button>
-      </div>
+
+  <!-- Actions -->
+  <div class="w-1/12 flex gap-2">
+    <button onclick="toggleDetails({{ order.id }})"
+      class="bg-gray-200 hover:bg-gray-300 px-2 rounded">
+      ▼
+    </button>
+
+    <button onclick="openDeleteModal({{ order.id }})"
+      class="bg-[#dc3545] hover:bg-[#b02a37] text-white px-3 py-1 rounded transition">
+      Delete
+    </button>
+  </div>
+</div>
+
+<!-- ✅ EXPANDED DETAILS ROW (ADD THIS EXACTLY HERE) -->
+<div id="details-{{ order.id }}" class="hidden bg-gray-50 px-6 py-4 text-sm">
+  <div class="grid grid-cols-12 gap-6">
+
+  <!-- LEFT COLUMN -->
+  <div class="col-span-4 space-y-2">
+    <div><b>Order Number:</b> {{ order.order_number }}</div>
+    <div><b>Created At:</b> {{ order.created_at }}</div>
+    <div><b>Unit:</b> {{ order.unit or '-' }}</div>
+    <div><b>Source:</b> {{ order.source_of_order }}</div>
+    <div><b>Remarks:</b> {{ order.remarks or '—' }}</div>
+  </div>
+
+  <!-- RIGHT COLUMN -->
+  <div class="col-span-8">
+    <b>Extracted Text:</b>
+    <div class="mt-2 p-3 bg-white border rounded max-h-40 overflow-y-auto text-xs whitespace-pre-wrap">
+      {{ order.extracted_text or 'N/A' }}
     </div>
-    {% endfor %}
+  </div>
+
+</div>
+
+</div>
+
+{% endfor %}
+
   </div>
 
 </div>
@@ -521,6 +563,12 @@ autoToggle.addEventListener("change", () => {
 
   updateToggleUI(autoToggle.checked);
 });
+
+function toggleDetails(id) {
+  const el = document.getElementById(`details-${id}`);
+  if (el) el.classList.toggle("hidden");
+}
+
 
   </script>
   
